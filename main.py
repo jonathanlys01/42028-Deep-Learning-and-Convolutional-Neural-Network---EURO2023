@@ -1,5 +1,4 @@
 import sys
-# must be changed !
 lib_path = "/root/A3/detectron2"
 if lib_path not in sys.path:
     sys.path.append(lib_path)
@@ -23,6 +22,15 @@ import torch
 from torch import nn
 import random
 from sklearn.preprocessing import StandardScaler
+
+######################################################"
+import argparse
+parser = argparse.ArgumentParser(description='Provide path to the parser')
+
+parser.add_argument('--path',"-p", default="current/input/video_standing_good.mp4", help='Path to the desired file')
+args = parser.parse_args()
+path_to_process = args.path
+
 print("you are in ",os.getcwd())
 
 # setting up the config
@@ -178,7 +186,7 @@ def process(input_path):
 
     
 # change path here
-dict_dataset = process("current/input/video_standing_good.mp4")
+dict_dataset = process(path_to_process)
 
 print(dict_dataset)
 
