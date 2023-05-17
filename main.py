@@ -1,4 +1,5 @@
 import sys
+# must be changed !
 lib_path = "/root/A3/detectron2"
 if lib_path not in sys.path:
     sys.path.append(lib_path)
