@@ -19,6 +19,10 @@ import uuid
 
 import subprocess
 
+import torch
+from torch import nn
+import random
+from sklearn.preprocessing import StandardScaler
 print("you are in ",os.getcwd())
 
 # setting up the config
@@ -204,3 +208,107 @@ args =[
 command = ["python", "run.py"] + args
 
 subprocess.run(command, check=True,cwd='VideoPose3D/')
+
+results_3D = np.load(f"current/output/arr_{dict_dataset['output']}.npy")
+assert results_3D.shape[0]>21
+
+
+def feature_creation(array):
+
+    poses = array
+
+    joint_sets = [
+            # left arm
+            (4, 3, 2),
+            # right arm
+            (7, 6, 5),
+            # left leg
+            (10, 11, 12),
+            # right leg
+            (13, 14, 15),
+            # neck
+            (1, 0, 16),
+            # back
+            (8, 1, 0)
+    ]
+
+    positions_and_angles_list = []
+
+    for pose_idx, pose in enumerate(poses):
+
+            keypoints = pose.reshape(-1, 17, 3)
+
+            angles = []
+            for frame in keypoints:
+                    frame_angles = []
+                    for joint_set in joint_sets:
+                            vector1 = frame[joint_set[1]] - frame[joint_set[0]]
+                            vector2 = frame[joint_set[2]] - frame[joint_set[1]]
+                            cos_angle = np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2))
+                            angle = np.arccos(cos_angle)
+                            frame_angles.append(angle)
+                    angles.append(frame_angles)
+
+            positions = []
+            for frame in keypoints:
+                    frame_positions = []
+                    for joint in frame:
+                            frame_positions.extend(joint)
+                    positions.append(frame_positions)
+
+            positions_and_angles = np.concatenate([angles, positions], axis=1)
+            
+            if pose_idx < 16:
+                    label = 1
+            else:
+                    label = 0
+                    
+            positions_and_angles_list.append(np.concatenate([positions_and_angles], axis=1))
+
+    posang = np.concatenate(positions_and_angles_list)
+
+    scaler = StandardScaler()
+    X = scaler.fit_transform(posang)
+
+    return X
+
+    
+
+X_processed = feature_creation(results_3D)
+
+
+class NeuralNetwork(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(NeuralNetwork, self).__init__()
+        self.layer_1 = nn.Linear(input_dim, hidden_dim[0])
+        self.relu = nn.ReLU()
+        self.layer_2 = nn.Linear(hidden_dim[0], hidden_dim[1])
+        self.layer_3 = nn.Linear(hidden_dim[1], output_dim)
+        self.sigmoid = nn.Sigmoid()
+       
+    def forward(self, x):
+        x = self.relu(self.layer_1(x))
+        x = self.relu(self.layer_2(x))
+        x = self.sigmoid(self.layer_3(x))
+        return x
+       
+input_dim = X_processed.shape[1]
+hidden_dim = [128, 64]  # Number of neurons in each hidden layer
+output_dim = 1
+
+model = NeuralNetwork(input_dim, hidden_dim, output_dim)
+
+
+state_dict = torch.load("best_model.pt")["model_state_dict"]
+model.load_state_dict(state_dict)
+
+
+shift = list(range(-10,10))
+random.shuffle(shift)
+
+selected_shift = shift[:5]
+n = X_processed.shape[0]
+
+for elt_shift in selected_shift:
+    x_tensor = torch.from_numpy(X_processed[n//2+elt_shift])
+    print(float(model(x_tensor)))
