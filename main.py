@@ -16,6 +16,8 @@ import os
 
 import uuid
 
+import subprocess
+
 print("you are in ",os.getcwd())
 
 # setting up the config
@@ -81,8 +83,11 @@ def process(input_path):
     # Closes all the frames
     cv2.destroyAllWindows()
     
+    name = "processed"+str(uuid.uuid4())
+    
     #metadata = np.array(metadata,dtype=object)
-    #np.savez_compressed(file=output_path,keypoints=keypoints,metadata=metadata)
+    """np.savez_compressed(file=f"current/middle/{name}.npz",keypoints=keypoints,
+                        metadata=metadata,boxes=boxes,segments=segments)"""
     
     # var :keypoints,boxes, metadata
     print("Processed video with detectron2")
@@ -133,33 +138,68 @@ def process(input_path):
         }
   
     
-    name = "processed"+str(uuid.uuid4())
+    
     
     output = {
         name:{
-        "custom":kp.astype("float32")
+        "custom":[kp.astype("float32")]
                }
                }
+
     
     coco_metadata['video_metadata'] = {name:metadata}
     
     print('Saving...')
-    #np.savez_compressed("VideoPose3D/data/"{name+".npz"}, positions_2d=output, metadata=metadata)
-    np.savez_compressed(f"current/output/{name}.npz", positions_2d=output, metadata=metadata)
+    
+    output_prefix_2d = 'data_2d_custom_'
+    
+    np.savez_compressed(f"VideoPose3D/data/{output_prefix_2d+name}.npz", 
+    positions_2d=output, metadata=coco_metadata)
+    
+    #np.savez_compressed(f"current/output/{name}.npz", positions_2d=output, metadata=metadata)
+    
     print('Done.')
     
     print("Dataset ready for inference 3d")
     
-    # return the id
-    return name
+    # return the name of the input file and the associated file
+    file_name = os.path.basename(input_path)
     
+    return {"input":file_name,
+            "output":name,
+            }
     
-        
     
 
     
 # change path here
-name_dataset = process("current/input/video_standing_good.mp4")
+dict_dataset = process("current/input/video_standing_good.mp4")
 
-print(name_dataset)
+print(dict_dataset)
 
+print("Infering 3D")
+
+
+PATH_TO_ELT = f"../current/input/{dict_dataset['input']}"
+PATH_FINAL_VID = f"../current/output/vis_{dict_dataset['output']}.mp4"
+PATH_FINAL_ARR = f"../current/output/arr_{dict_dataset['output']}.npy"
+
+args =[
+  "-d", "custom",
+  "-k", dict_dataset["output"],
+  "-arc", "3,3,3,3,3",
+  "-c", "checkpoint",
+  "--evaluate", "pretrained_h36m_detectron_coco.bin",
+  "--render", 
+  "--viz-subject", dict_dataset["output"],
+  "--viz-action", "custom",
+  "--viz-camera", "0",
+  "--viz-video", PATH_TO_ELT,
+  "--viz-export", PATH_FINAL_ARR,
+  "--viz-output", PATH_FINAL_VID,
+  "--viz-size", "6"
+]
+
+command = ["python", "run.py"] + args
+
+subprocess.run(command, check=True,cwd='VideoPose3D/')
