@@ -37,6 +37,7 @@ class Detector:
         self.cfg.merge_from_file(model_zoo.get_config_file("COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml"))
         self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.9
         self.thr = self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.9
+        self.cfg.MODEL.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml")
         self.predictor = DefaultPredictor(self.cfg)
         self.last_file = ""
