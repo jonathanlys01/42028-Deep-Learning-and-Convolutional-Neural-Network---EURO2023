@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 import os
 
-import uuid
+import argparse
 
 import subprocess
 
@@ -36,12 +36,13 @@ class Detector:
         self.cfg = get_cfg()
         self.cfg.merge_from_file(model_zoo.get_config_file("COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml"))
         self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.9
-        self.thr = self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.9
-        self.cfg.MODEL.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.thr = 0.9 #shorter var
+        #self.cfg.MODEL.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Keypoints/keypoint_rcnn_X_101_32x8d_FPN_3x.yaml")
         self.predictor = DefaultPredictor(self.cfg)
-        self.last_file = ""
-        self.last_output = ""
+        
+        self.last_file = "" #stores the name of the last file processed
+
         self.ann_model = NeuralNetwork(57,[128,64],1)
         self.ann_model.load_state_dict(torch.load("best_model.pt")["model_state_dict"])
         print("Setup Done")
@@ -49,13 +50,19 @@ class Detector:
     def process_image(self, im):
         # returns the processed image (can be shown with cv2.imshow())
         outputs = self.predictor(im)
-        if len(outputs["instances"]) and all(list(i>self.thr for i in (outputs["instances"]).scores)):
-            v = Visualizer(im[:,:,::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1)
-            out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
-        return out.get_image()[:, :, ::-1]
+        if len(outputs["instances"]) and all(list(i>self.thr for i in (outputs["instances"]).scores)): # if there is at least one instance and all the instances have a score > threshold
+            v = Visualizer(im[:,:,::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1) 
+            out = v.draw_instance_predictions(outputs["instances"].to("cpu")) 
+        return out.get_image()[:, :, ::-1] 
     
     def process_video(self,input_path):
         # input_path : path to video
+        
+        # return the name of the input file and the associated file
+        name = os.path.basename(input_path) # get the name of the file without the extension
+        
+        self.last_file = name # store it in the Detector object
+        
         cap = cv2.VideoCapture(input_path)
 
         boxes = []
@@ -64,7 +71,8 @@ class Detector:
 
         if (cap.isOpened()== False): 
             print("Error opening video stream or file")
-            return
+            print("Tried to open",input_path)
+            return 
 
         while(cap.isOpened()):
             ret, frame = cap.read()
@@ -105,10 +113,6 @@ class Detector:
 
         # Closes all the frames
         cv2.destroyAllWindows()
-        
-        
-        # generates a random unique name 
-        name = "processed"+str(uuid.uuid4())
     
         # var :keypoints,boxes, metadata
         print("Processed video with detectron2")
@@ -172,64 +176,55 @@ class Detector:
         output_prefix_2d = 'data_2d_custom_'
         
         # can not be saved somewhere else.
+        # format data_2d_custom_processed_*example*.npz
         np.savez_compressed(f"VideoPose3D/data/{output_prefix_2d+name}.npz", 
         positions_2d=output, metadata=coco_metadata)
-        
-        print('Done.')
-        
+                
         print("Dataset ready for inference 3d")
         
-        # return the name of the input file and the associated file
-        file_name = os.path.basename(input_path) # without the extension
         
-        self.last_file = file_name
-        self.last_output = name
-        
-        return {"input":file_name,
-                "output":name,
-                }
+        return name
         
     def run_pose3d(self):
-        dict_dataset = {"input":self.last_file,
-                        "output":self.last_output}
-        PATH_TO_ELT = f"../current/input/{dict_dataset['input']}"
-        PATH_FINAL_VID = f"../current/output/vis_{dict_dataset['output']}.mp4"
-        PATH_FINAL_ARR = f"../current/output/arr_{dict_dataset['output']}.npy"
+        name = self.last_file
+        PATH_TO_ELT = f"../current/input/{name}"
+        PATH_FINAL_VID = f"../current/output/vis_{name}.mp4"
+        PATH_FINAL_ARR = f"../current/output/arr_{name}.npy"
 
         args =[
         "-d", "custom",
-        "-k", dict_dataset["output"],
+        "-k", name,
         "-arc", "3,3,3,3,3",
         "-c", "checkpoint",
         "--evaluate", "pretrained_h36m_detectron_coco.bin",
         "--render", 
-        "--viz-subject", dict_dataset["output"],
+        "--viz-subject", name,
         "--viz-action", "custom",
         "--viz-camera", "0",
         "--viz-video", PATH_TO_ELT,
         "--viz-export", PATH_FINAL_ARR,
         "--viz-output", PATH_FINAL_VID,
         "--viz-size", "6"
-        ]
+        ] 
 
-        command = ["python", "run.py"] + args
+        command = ["python", "run.py"] + args 
 
-        subprocess.run(command, check=True,cwd='VideoPose3D/')
+        subprocess.run(command, check=True,cwd='VideoPose3D/') # run the command in the VideoPose3D folder
     
     def apply_ann(self):
         # returns the mean of the 5 predictions
         results_3D = np.load(f"current/output/arr_{self.last_output}.npy")
         assert results_3D.shape[0]>21
         X_processed = feature_creation(results_3D)
+        
         shift = list(range(-10,10))
-        random.shuffle(shift)
-        selected_shift = shift[:5]
+        
         n = X_processed.shape[0]
         L_results = []
-        for elt_shift in selected_shift:
-            x_tensor = torch.from_numpy(X_processed[n//2+elt_shift])
-            L_results.append(float(self.ann_model(x_tensor)))
-        return np.mean(L_results)
+        for elt_shift in shift:
+            x_tensor = torch.from_numpy(X_processed[n//2+elt_shift]) # take the middle frames 
+            L_results.append(float(self.ann_model(x_tensor))) 
+        return np.mean(L_results) # return the mean of the 21 predictions
         
 
 class NeuralNetwork(nn.Module):
@@ -269,7 +264,7 @@ def feature_creation(array):
 
     positions_and_angles_list = []
 
-    for pose_idx, pose in enumerate(poses):
+    for _, pose in enumerate(poses):
 
             keypoints = pose.reshape(-1, 17, 3)
 
@@ -292,15 +287,11 @@ def feature_creation(array):
                     positions.append(frame_positions)
 
             positions_and_angles = np.concatenate([angles, positions], axis=1)
-            
-            if pose_idx < 16:
-                    label = 1
-            else:
-                    label = 0
+        
                     
             positions_and_angles_list.append(np.concatenate([positions_and_angles], axis=1))
 
-    posang = np.concatenate(positions_and_angles_list)
+    posang = np.concatenate(positions_and_angles_list) # shape (n, 57)
 
     scaler = StandardScaler()
     X = scaler.fit_transform(posang)
@@ -309,8 +300,15 @@ def feature_creation(array):
 
     
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path","-p", type=str, default="current/input/video_standing_good.mp4",help="path to the video to process")
+    args = parser.parse_args()
+    
+    path_to_process = args.path
+    
     detector = Detector()
-    path_to_process = "current/input/video_standing_good.mp4"
+        
     print(detector.process_video(path_to_process))
     detector.run_pose3d()
     print(detector.apply_ann())
