@@ -26,7 +26,7 @@ if not present: git clone detectron and videopose3d repos
 
 Download the pretrained model:
 
-    bash script.sh
+    bash download_checkpoint.sh
 ### Current
 If you stick to the `main.py` file, create a folder named current, with 2 subfolder input and output. 
 
