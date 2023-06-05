@@ -213,7 +213,7 @@ class Detector:
     
     def apply_ann(self):
         # returns the mean of the 5 predictions
-        results_3D = np.load(f"current/output/arr_{self.last_output}.npy")
+        results_3D = np.load(f"current/output/arr_{self.last_file}.npy")
         assert results_3D.shape[0]>21
         X_processed = feature_creation(results_3D)
         
