@@ -31,14 +31,14 @@ Our scoring system utilizes scale invariant features, ensuring accurate and cons
 #### Walk
 output | framewise score
 :-: | :-:
-[![Demo walk](walking.gif)](walking) | <img src='walk2_score.jpeg' width=180/>
+[![Demo walk](walking.gif)](walking) | <img src='walk2_score.png' width=180/>
 
 
 
 #### Dynamic change in sitting
 output | framewise score
 :-: | :-:
-<video src='Sitting_dynamic.mp4' width=180/> | <img src='Sitting_eval.jpeg' width=180/>
+<video src='Sitting_dynamic.mp4'/> | <img src='Sitting_eval.jpeg' width=600/>
 
 
 
