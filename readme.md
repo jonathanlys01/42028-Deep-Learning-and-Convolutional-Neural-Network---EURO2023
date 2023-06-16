@@ -28,7 +28,18 @@ Our scoring system utilizes scale invariant features, ensuring accurate and cons
 
 ## Sample outputs
 
-[![Demo CountPages alpha](walking.gif)](walking)
+#### Walk
+output | framewise score
+:-: | :-:
+[![Demo walk](walking.gif)](walking) | <img src='walk2_score.jpeg' width=180/>
+
+
+
+#### Dynamic change in sitting
+output | framewise score
+:-: | :-:
+<video src='Sitting_dynamic.mp4' width=180/> | <img src='Sitting_eval.jpeg' width=180/>
+
 
 
 ## Setup
