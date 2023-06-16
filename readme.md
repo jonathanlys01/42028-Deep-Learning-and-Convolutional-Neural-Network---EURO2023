@@ -31,14 +31,14 @@ Our scoring system utilizes scale invariant features, ensuring accurate and cons
 #### Walk
 output | framewise score
 :-: | :-:
-[![Demo walk](walking.gif)](walking) | <img src='walk2_score.png' width=180/>
+[![Demo walk](walking.gif)](walking) | <img src='walk2_score.png' width=480/>
 
 
 
 #### Dynamic change in sitting
 output | framewise score
 :-: | :-:
-<video src='Sitting_dynamic.mp4'/> | <img src='Sitting_eval.jpeg' width=600/>
+https://github.com/joanvelja/42028-Deep-Learning-and-Convolutional-Neural-Network---EURO2023/assets/94200647/efd44756-ef47-4fb8-9543-3517cd52a0ee | <img src='Sitting_eval.jpeg' width=600/>
 
 
 
